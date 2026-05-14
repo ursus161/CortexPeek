@@ -41,24 +41,28 @@ void RegistersCommand::execute(DebuggerContext& ctx, const std::vector<std::stri
 void DisassembleCommand::execute(DebuggerContext& ctx, const std::vector<std::string>& args) {
     auto     registers = RegisterFile::get(ctx.process.pid());
     uint64_t addr      = registers.rip();
-    size_t   count = 10;
+    size_t count = 100;
 
-    if (!args.empty())
+    if (!args.empty() && args[0] != ".")
         addr = std::stoull(args[0], nullptr, 16);
+
     if (args.size() >= 2)
+
         count = std::stoull(args[1]);
 
-    // read enough bytes for count instructions (max 15 bytes per x86-64 instruction)
-    constexpr size_t bufferSize = 15 * 32;
-    uint8_t buffer[bufferSize]  = {};
+    // 15 bytes is the max length of a single x86-64 instruction
+    // it's calculated in the manner that the instruction that have the most occurances get the smallest bytelengths, for example push ebp is really small compared to other things
+    
+    const size_t         bufferSize = 15 * count;
+    std::vector<uint8_t> buffer(bufferSize, 0);
     MemoryView<uint64_t> memory(ctx.process.pid());
     for (size_t offset = 0; offset < bufferSize; offset += sizeof(uint64_t)) {
         uint64_t word = memory.read(addr + offset);
-        std::memcpy(buffer + offset, &word, sizeof(word));
+        std::memcpy(buffer.data() + offset, &word, sizeof(word));
     }
 
     Disassembler disassembler;
-    for (const auto& instr : disassembler.disassemble(buffer, bufferSize, addr, count))
+    for (const auto& instr : disassembler.disassemble(buffer.data(), bufferSize, addr, count))
         std::printf("0x%016lx  %-8s %s\n",
                     instr.address, instr.mnemonic.c_str(), instr.operands.c_str());
 }
