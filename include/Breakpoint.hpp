@@ -23,5 +23,5 @@ private:
     pid_t          pid_;
     std::uintptr_t address_;
     bool           enabled_   = false;
-    uint8_t        savedByte_ = 0; // original byte overwritten by 0xCC
+    uint8_t        savedByte_ = 0; // original byte overwritten by 0xCC, i've got to restore the value back on the stack after i'm done w the project
 };

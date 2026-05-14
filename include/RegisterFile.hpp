@@ -14,6 +14,12 @@ struct RegisterFile {
 
     void dump() const;
 
+    // getters for only the important registers in regard to the debugger
+    // rip -> adress of the next instruction that will be executed
+    // rsp -> stack ptr
+    // rbp -> stack base ptr
+    // rax -> for inspecting the return value
+
     uint64_t rip() const { return regs.rip; }
     uint64_t rsp() const { return regs.rsp; }
     uint64_t rbp() const { return regs.rbp; }

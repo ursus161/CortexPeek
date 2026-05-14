@@ -8,7 +8,7 @@ Breakpoint::Breakpoint(pid_t pid, std::uintptr_t address)
     : pid_(pid), address_(address) {}
 
 void Breakpoint::enable() {
-    if (enabled_) return;
+    if (enabled_) return; // can't enable the enabled
 
     // PTRACE_PEEKDATA reads one word (8 bytes on x86-64) at a time
     errno = 0;
@@ -28,7 +28,7 @@ void Breakpoint::enable() {
 }
 
 void Breakpoint::disable() {
-    if (!enabled_) return;
+    if (!enabled_) return; // can't disable the disabled
 
     errno = 0;
     long word = ptrace(PTRACE_PEEKDATA, pid_, reinterpret_cast<void*>(address_), nullptr);
