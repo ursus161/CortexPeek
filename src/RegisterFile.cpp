@@ -6,11 +6,11 @@
 #include <cstdio>
 
 RegisterFile RegisterFile::get(pid_t pid) {
-    RegisterFile rf;
+    RegisterFile result;
     // PTRACE_GETREGS fills the entire user_regs_struct in one call
-    if (ptrace(PTRACE_GETREGS, pid, nullptr, &rf.regs) < 0)
+    if (ptrace(PTRACE_GETREGS, pid, nullptr, &result.regs) < 0)
         throw std::runtime_error(std::string("PTRACE_GETREGS failed: ") + strerror(errno));
-    return rf;
+    return result;
 }
 
 void RegisterFile::set(pid_t pid) const {

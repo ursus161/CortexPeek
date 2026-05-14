@@ -27,9 +27,8 @@ Process::Process(const std::string& path, const std::vector<std::string>& args) 
         // build argv for execvp: path + args + nullptr sentinel
         std::vector<char*> argv;
         argv.push_back(const_cast<char*>(path.c_str()));
-        for (const auto& a : args)
-
-            argv.push_back(const_cast<char*>(a.c_str()));
+        for (const auto& arg : args)
+            argv.push_back(const_cast<char*>(arg.c_str()));
 
         
         argv.push_back(nullptr); // any exec(something) arg list ends in null
@@ -47,8 +46,8 @@ Process::Process(const std::string& path, const std::vector<std::string>& args) 
 }
 
 Process Process::attach(pid_t pid) {
-    Process p;
-    p.pid_ = pid;
+    Process newProcess;
+    newProcess.pid_ = pid;
 
     if (ptrace(PTRACE_ATTACH, pid, nullptr, nullptr) < 0)
         throw std::runtime_error(std::string("PTRACE_ATTACH failed: ") + strerror(errno));
@@ -57,9 +56,9 @@ Process Process::attach(pid_t pid) {
     int status;
     waitpid(pid, &status, 0);
 
-    p.alive_    = true;
-    p.attached_ = true;
-    return p;
+    newProcess.alive_    = true;
+    newProcess.attached_ = true;
+    return newProcess;
 }
 
 Process::~Process() {
