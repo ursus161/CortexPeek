@@ -2,6 +2,7 @@
 #include "Command.hpp"
 #include "History.hpp"
 #include "RegisterFile.hpp"
+#include "Symbols.hpp"
 #include "Utils.hpp"
 #include <iostream>
 #include <string>
@@ -21,7 +22,8 @@ int main(int argc, char* argv[]) {
     Process proc(argv[1], args);
 
     std::unordered_map<std::uintptr_t, std::unique_ptr<Breakpoint>> breakpoints;
-    DebuggerContext ctx{ proc, breakpoints };
+    auto symbols = parseSymbols(proc.binaryPath());
+    DebuggerContext ctx{ proc, breakpoints, symbols };
 
     std::unordered_map<std::string, std::unique_ptr<Command>> commands;
 

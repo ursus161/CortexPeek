@@ -4,14 +4,15 @@
 #include <memory>
 #include <unordered_map>
 #include "Breakpoint.hpp"
+#include <cstdint>
 
 class Process;
 
-// context passed t every command so they can access shared debugger state
+// context passed to every command so they can access shared debugger state
 struct DebuggerContext {
-    Process&  process;
-    std::unordered_map<std::uintptr_t,
-                       std::unique_ptr<Breakpoint>>&  breakpoints;
+    Process& process;
+    std::unordered_map<std::uintptr_t, std::unique_ptr<Breakpoint>>& breakpoints;
+    std::unordered_map<std::string, std::uintptr_t>&                 symbols;
 };
 
 class Command {

@@ -43,6 +43,7 @@ Process::Process(const std::string& path, const std::vector<std::string>& args) 
     waitpid(pid_, &status, 0);
     alive_    = true;
     attached_ = false;
+    path_     = path;
 }
 
 Process Process::attach(pid_t pid) {
@@ -58,6 +59,14 @@ Process Process::attach(pid_t pid) {
 
     newProcess.alive_    = true;
     newProcess.attached_ = true;
+
+    // read the binary path from /proc/<pid>/exe since we don't have it directly
+    char linkBuffer[4096] = {};
+    std::string procExe = "/proc/" + std::to_string(pid) + "/exe";
+    ssize_t len = readlink(procExe.c_str(), linkBuffer, sizeof(linkBuffer) - 1);
+    if (len > 0)
+        newProcess.path_ = std::string(linkBuffer, len);
+
     return newProcess;
 }
 

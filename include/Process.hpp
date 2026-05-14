@@ -31,11 +31,13 @@ public:
 
     pid_t pid()     const { return pid_; }
     bool  isAlive() const { return alive_; }
+    const std::string& binaryPath() const { return path_; }
 
 private:
     Process() = default;
 
-    pid_t pid_      = -1;
-    bool  alive_    = false;
-    bool  attached_ = false; // true = we PTRACE_ATTACHed, false = we forked
+    pid_t       pid_      = -1;
+    bool        alive_    = false;
+    bool        attached_ = false; // true = we PTRACE_ATTACHed, false = we forked
+    std::string path_;
 };
