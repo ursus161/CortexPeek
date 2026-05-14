@@ -41,28 +41,36 @@ void RegistersCommand::execute(DebuggerContext& ctx, const std::vector<std::stri
 void DisassembleCommand::execute(DebuggerContext& ctx, const std::vector<std::string>& args) {
     auto     registers = RegisterFile::get(ctx.process.pid());
     uint64_t addr      = registers.rip();
-    size_t count = 100;
+    // 0 = no explicit count, read until unmapped memory
+    size_t count     = 0;
+    size_t maxCount  = SIZE_MAX;
 
     if (!args.empty() && args[0] != ".")
         addr = std::stoull(args[0], nullptr, 16);
-
-    if (args.size() >= 2)
-
-        count = std::stoull(args[1]);
+    if (args.size() >= 2) {
+        count    = std::stoull(args[1]);
+        maxCount = count;
+    }
 
     // 15 bytes is the max length of a single x86-64 instruction
-    // it's calculated in the manner that the instruction that have the most occurances get the smallest bytelengths, for example push ebp is really small compared to other things
-    
-    const size_t         bufferSize = 15 * count;
+    // cap the read buffer at 64KB when no count is given so we don't read forever
+    const size_t         bufferSize = count > 0 ? 15 * count : 64 * 1024;
     std::vector<uint8_t> buffer(bufferSize, 0);
     MemoryView<uint64_t> memory(ctx.process.pid());
+
+    size_t bytesRead = 0;
     for (size_t offset = 0; offset < bufferSize; offset += sizeof(uint64_t)) {
-        uint64_t word = memory.read(addr + offset);
-        std::memcpy(buffer.data() + offset, &word, sizeof(word));
+        try {
+            uint64_t word = memory.read(addr + offset);
+            std::memcpy(buffer.data() + offset, &word, sizeof(word));
+            bytesRead += sizeof(uint64_t);
+        } catch (...) {
+            break; // hit unmapped memory, stop here and disassemble what we have
+        }
     }
 
     Disassembler disassembler;
-    for (const auto& instr : disassembler.disassemble(buffer.data(), bufferSize, addr, count))
+    for (const auto& instr : disassembler.disassemble(buffer.data(), bytesRead, addr, maxCount))
         std::printf("0x%016lx  %-8s %s\n",
                     instr.address, instr.mnemonic.c_str(), instr.operands.c_str());
 }

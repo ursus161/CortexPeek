@@ -5,6 +5,8 @@
 #include "Utils.hpp"
 #include <iostream>
 #include <string>
+#include <cstring>
+#include <sys/wait.h>
 #include <vector>
 #include <unordered_map>
 #include <memory>
@@ -73,9 +75,22 @@ int main(int argc, char* argv[]) {
         // after continue/step wait for the next stop and report where we landed
         if (cmd == "continue" || cmd == "step") {
             int status = 0;
-            if (proc.waitForStop(status))
+            if (proc.waitForStop(status)) {
+                if (WIFSTOPPED(status)) {
+                    int signal = WSTOPSIG(status);
+                    // fatal signals mean the process is in an unrecoverable crash,
+                    // re-delivering them via PTRACE_CONT just loops forever
+                    if (signal == SIGSEGV || signal == SIGBUS  ||
+                        signal == SIGFPE  || signal == SIGILL  || signal == SIGABRT) {
+                        std::printf("process crashed with signal %d (%s) at 0x%016lx\n",
+                                    signal, strsignal(signal),
+                                    RegisterFile::get(proc.pid()).rip());
+                        break;
+                    }
+                }
                 std::printf("stopped at 0x%016lx\n",
                             RegisterFile::get(proc.pid()).rip());
+            }
         }
     }
 
