@@ -40,7 +40,10 @@ Process::Process(const std::string& path, const std::vector<std::string>& args) 
     // parent: after execvp the kernel delivers a SIGTRAP to the child before
     // it runs a single instruction :  wait for that stop before returning
     int status;
-    waitpid(pid_, &status, 0);
+    if (waitpid(pid_, &status, 0) < 0)
+        throw std::runtime_error(std::string("waitpid failed: ") + strerror(errno));
+    if (!WIFSTOPPED(status))
+        throw std::runtime_error("child exited before ptrace stop — check the path and permissions");
     alive_    = true;
     attached_ = false;
     path_     = path;
