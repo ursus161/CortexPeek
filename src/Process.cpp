@@ -5,12 +5,15 @@
 #include <stdexcept>
 #include <cstring>
 #include <cerrno>
+#include "Exceptions.hpp"
+
+
 
 Process::Process(const std::string& path, const std::vector<std::string>& args) {
     pid_ = fork();
     // in the future the debugger process should be kept in a container in case of malicious fork-bombs 
     if (pid_ < 0) //fork throws -1 as an error
-        throw std::runtime_error("fork failed");
+        throw ProcessException("Fork failed");
 
 
     if (pid_ == 0) { // the pid is 0 only when i'm regarding a cloned process
@@ -40,10 +43,12 @@ Process::Process(const std::string& path, const std::vector<std::string>& args) 
     // parent: after execvp the kernel delivers a SIGTRAP to the child before
     // it runs a single instruction :  wait for that stop before returning
     int status;
-    if (waitpid(pid_, &status, 0) < 0)
-        throw std::runtime_error(std::string("waitpid failed: ") + strerror(errno));
+    if (waitpid(pid_, &status, 0) < 0)      
+         throw ProcessException("waitpid failed");
+
     if (!WIFSTOPPED(status))
-        throw std::runtime_error("child exited before ptrace stop — check the path and permissions");
+       throw ProcessException("child exited before ptrace stop");
+       
     alive_    = true;
     attached_ = false;
     path_     = path;

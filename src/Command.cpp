@@ -3,10 +3,11 @@
 #include "RegisterFile.hpp"
 #include "Disassembler.hpp"
 #include "MemoryView.hpp"
+#include "Exceptions.hpp"
 #include <cstdio>
 #include <cstring>
 #include <iostream>
-#include <stdexcept>
+#include <sstream>
 
 void ContinueCommand::execute(DebuggerContext& ctx, const std::vector<std::string>&) {
     ctx.process.continueExecution();
@@ -17,15 +18,15 @@ void StepCommand::execute(DebuggerContext& ctx, const std::vector<std::string>&)
 }
 
 void BreakCommand::execute(DebuggerContext& ctx, const std::vector<std::string>& args) {
-    if (args.empty()) {
-        std::cerr << "usage: break <address>\n";
-        return;
-    }
+    if (args.empty())
+        throw CommandException("usage: break <address>");
+
     std::uintptr_t addr = std::stoull(args[0], nullptr, 16);
 
     if (ctx.breakpoints.count(addr)) {
-        std::cerr << "breakpoint already set at 0x" << std::hex << addr << '\n';
-        return;
+        std::ostringstream oss;
+        oss << "breakpoint already set at 0x" << std::hex << addr;
+        throw BreakpointException(oss.str());
     }
 
     auto breakpoint = std::make_unique<Breakpoint>(ctx.process.pid(), addr);
@@ -64,7 +65,7 @@ void DisassembleCommand::execute(DebuggerContext& ctx, const std::vector<std::st
             uint64_t word = memory.read(addr + offset);
             std::memcpy(buffer.data() + offset, &word, sizeof(word));
             bytesRead += sizeof(uint64_t);
-        } catch (...) {
+        } catch (const PtraceException&) {
             break; // hit unmapped memory, stop here and disassemble what we have
         }
     }

@@ -3,6 +3,8 @@
 #include <stdexcept>
 #include <cerrno>
 #include <cstring>
+#include "Exceptions.hpp"
+
 
 Breakpoint::Breakpoint(pid_t pid, std::uintptr_t address)
     : pid_(pid), address_(address) {}
@@ -14,7 +16,7 @@ void Breakpoint::enable() {
     errno = 0;
     long word = ptrace(PTRACE_PEEKDATA, pid_, reinterpret_cast<void*>(address_), nullptr);
     if (word == -1 && errno)
-        throw std::runtime_error(std::string("PEEKDATA failed: ") + strerror(errno));
+         throw PtraceException("PEEKDATA", errno);
 
     savedByte_ = static_cast<uint8_t>(word & 0xFF);
 
@@ -33,7 +35,7 @@ void Breakpoint::disable() {
     errno = 0;
     long word = ptrace(PTRACE_PEEKDATA, pid_, reinterpret_cast<void*>(address_), nullptr);
     if (word == -1 && errno)
-        throw std::runtime_error(std::string("PEEKDATA failed: ") + strerror(errno));
+         throw PtraceException("PEEKDATA", errno);
 
     // restore the original byte so the instruction is intact again
     long restored = (word & ~0xFFL) | savedByte_;

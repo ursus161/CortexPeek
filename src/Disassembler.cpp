@@ -1,9 +1,10 @@
 #include "Disassembler.hpp"
 #include <stdexcept>
+#include "Exceptions.hpp"
 
 Disassembler::Disassembler() {
     if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle_) != CS_ERR_OK)
-        throw std::runtime_error("failed to initialize capstone");
+         throw DisassemblyException("failed to initialize capstone");
 }
 
 Disassembler::~Disassembler() {

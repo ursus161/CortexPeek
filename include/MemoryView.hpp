@@ -6,6 +6,7 @@
 #include <cerrno>
 #include <stdexcept>
 #include <algorithm>
+#include "Exceptions.hpp"
 
 // template so callers can read typed values directly: MemoryView<uint64_t>, MemoryView<uint32_t> etc.
 template<typename T>
@@ -33,7 +34,7 @@ T MemoryView<T>::read(std::uintptr_t address) const {
         long word = ptrace(PTRACE_PEEKDATA, pid_,
                            reinterpret_cast<void*>(address + offset), nullptr);
         if (word == -1 && errno)
-            throw std::runtime_error(std::string("PEEKDATA failed: ") + strerror(errno));
+            throw PtraceException("PEEKDATA", errno);
 
         size_t bytesToCopy = std::min(remaining, sizeof(long));
         std::memcpy(destination + offset, &word, bytesToCopy);
@@ -59,7 +60,7 @@ void MemoryView<T>::write(std::uintptr_t address, T value) {
             word = ptrace(PTRACE_PEEKDATA, pid_,
                           reinterpret_cast<void*>(address + offset), nullptr);
             if (word == -1 && errno)
-                throw std::runtime_error(std::string("PEEKDATA failed: ") + strerror(errno));
+               throw PtraceException("PEEKDATA", errno);
         }
 
         std::memcpy(&word, source + offset, bytesToCopy);
@@ -67,7 +68,7 @@ void MemoryView<T>::write(std::uintptr_t address, T value) {
         if (ptrace(PTRACE_POKEDATA, pid_,
                    reinterpret_cast<void*>(address + offset),
                    reinterpret_cast<void*>(word)) < 0)
-            throw std::runtime_error(std::string("POKEDATA failed: ") + strerror(errno));
+            throw PtraceException("PEEKDATA", errno);
 
         offset    += bytesToCopy;
         remaining -= bytesToCopy;
