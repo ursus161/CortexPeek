@@ -1,5 +1,4 @@
 #include "Disassembler.hpp"
-#include <stdexcept>
 #include "Exceptions.hpp"
 
 Disassembler::Disassembler() {

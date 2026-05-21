@@ -4,6 +4,7 @@
 #include "RegisterFile.hpp"
 #include "Symbols.hpp"
 #include "Utils.hpp"
+#include "Exceptions.hpp"
 #include <iostream>
 #include <string>
 #include <cstring>
@@ -70,8 +71,14 @@ int main(int argc, char* argv[]) {
         try {
             std::vector<std::string> cmdArgs(tokens.begin() + 1, tokens.end());
             found->second->execute(ctx, cmdArgs);
-        } catch (const std::exception& e) {
+        } catch (const CommandException& e) {
+            std::cerr << "command error: " << e.what() << '\n';
+        } catch (const PtraceException& e) {
+            std::cerr << "ptrace error: " << e.what() << '\n';
+        } catch (const CortexException& e) {
             std::cerr << "error: " << e.what() << '\n';
+        } catch (const std::exception& e) {
+            std::cerr << "unexpected error: " << e.what() << '\n';
         }
 
         // after continue/step wait for the next stop and report where we landed

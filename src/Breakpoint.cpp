@@ -1,6 +1,5 @@
 #include "Breakpoint.hpp"
 #include <sys/ptrace.h>
-#include <stdexcept>
 #include <cerrno>
 #include <cstring>
 #include "Exceptions.hpp"
@@ -24,7 +23,7 @@ void Breakpoint::enable() {
     long patched = (word & ~0xFFL) | 0xCC;
     if (ptrace(PTRACE_POKEDATA, pid_, reinterpret_cast<void*>(address_),
                reinterpret_cast<void*>(patched)) < 0)
-        throw std::runtime_error(std::string("POKEDATA failed: ") + strerror(errno));
+        throw PtraceException("POKEDATA", errno);
 
     enabled_ = true;
 }
@@ -41,7 +40,7 @@ void Breakpoint::disable() {
     long restored = (word & ~0xFFL) | savedByte_;
     if (ptrace(PTRACE_POKEDATA, pid_, reinterpret_cast<void*>(address_),
                reinterpret_cast<void*>(restored)) < 0)
-        throw std::runtime_error(std::string("POKEDATA failed: ") + strerror(errno));
+        throw PtraceException("POKEDATA", errno);
 
     enabled_ = false;
 }

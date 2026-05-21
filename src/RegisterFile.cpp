@@ -1,21 +1,20 @@
 #include "RegisterFile.hpp"
 #include <sys/ptrace.h>
-#include <stdexcept>
-#include <cstring>
 #include <cerrno>
 #include <cstdio>
+#include "Exceptions.hpp"
 
 RegisterFile RegisterFile::get(pid_t pid) {
     RegisterFile result;
     // PTRACE_GETREGS fills the entire user_regs_struct in one call
     if (ptrace(PTRACE_GETREGS, pid, nullptr, &result.regs) < 0)
-        throw std::runtime_error(std::string("PTRACE_GETREGS failed: ") + strerror(errno));
+        throw PtraceException("PTRACE_GETREGS", errno);
     return result;
 }
 
 void RegisterFile::set(pid_t pid) const {
     if (ptrace(PTRACE_SETREGS, pid, nullptr, const_cast<user_regs_struct*>(&regs)) < 0)
-        throw std::runtime_error(std::string("PTRACE_SETREGS failed: ") + strerror(errno));
+        throw PtraceException("PTRACE_SETREGS", errno);
 }
     
 void RegisterFile::dump() const { //0x%016llx represents 16 chars on ULL format, it'll print in lowercase format

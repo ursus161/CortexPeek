@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <cstring>
 #include <cerrno>
-#include <stdexcept>
 #include <algorithm>
 #include "Exceptions.hpp"
 

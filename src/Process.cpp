@@ -2,7 +2,6 @@
 #include <sys/ptrace.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <stdexcept>
 #include <cstring>
 #include <cerrno>
 #include "Exceptions.hpp"
@@ -59,7 +58,7 @@ Process Process::attach(pid_t pid) {
     newProcess.pid_ = pid;
 
     if (ptrace(PTRACE_ATTACH, pid, nullptr, nullptr) < 0)
-        throw std::runtime_error(std::string("PTRACE_ATTACH failed: ") + strerror(errno));
+        throw PtraceException("PTRACE_ATTACH", errno);
 
     // PTRACE_ATTACH sends SIGSTOP to the target; wait until it actually stops
     int status;
@@ -91,13 +90,13 @@ Process::~Process() {
 
 void Process::continueExecution() {
     if (ptrace(PTRACE_CONT, pid_, nullptr, nullptr) < 0)
-        throw std::runtime_error(std::string("PTRACE_CONT failed: ") + strerror(errno));
+        throw PtraceException("PTRACE_CONT", errno);
 }
 
 void Process::singleStep() {
     // executes exactly one instruction then re-delivers SIGTRAP
     if (ptrace(PTRACE_SINGLESTEP, pid_, nullptr, nullptr) < 0)
-        throw std::runtime_error(std::string("PTRACE_SINGLESTEP failed: ") + strerror(errno));
+        throw PtraceException("PTRACE_SINGLESTEP", errno);
 }
 
 bool Process::waitForStop(int& status) {
@@ -115,7 +114,7 @@ bool Process::waitForStop(int& status) {
 
 void Process::detach() {
     if (ptrace(PTRACE_DETACH, pid_, nullptr, nullptr) < 0)
-        throw std::runtime_error(std::string("PTRACE_DETACH failed: ") + strerror(errno));
+        throw PtraceException("PTRACE_DETACH", errno);
     alive_    = false;
     attached_ = false;
 }
