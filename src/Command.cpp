@@ -46,8 +46,18 @@ void DisassembleCommand::execute(DebuggerContext& ctx, const std::vector<std::st
     size_t count     = 0;
     size_t maxCount  = SIZE_MAX;
 
-    if (!args.empty() && args[0] != ".")
-        addr = std::stoull(args[0], nullptr, 16);
+    if (!args.empty() && args[0] != ".") {
+        auto it = ctx.symbols.find(args[0]);
+        if (it != ctx.symbols.end())
+            addr = it->second;
+        else {
+            try {
+                addr = std::stoull(args[0], nullptr, 16);
+            } catch (const std::exception&) {
+                throw CommandException("disasm: unknown symbol or invalid address '" + args[0] + "'");
+            }
+        }
+    }
     if (args.size() >= 2) {
         count    = std::stoull(args[1]);
         maxCount = count;
