@@ -2,8 +2,9 @@
 #include <string>
 #include <vector>
 #include <sys/types.h>
+#include "Observer.hpp"
 
-class Process {
+class Process : public DebugEventSource {
 public:
     // fork + exec the target binary; child calls PTRACE_TRACEME before execvp
     // in this instance i preffer execvp as a system func over execl because i won't always know the argument at compile time, by nature a processes are dynamic so i preffer passing them to the kernel this way
@@ -36,8 +37,9 @@ public:
 private:
     Process() = default;
 
-    pid_t       pid_      = -1;
-    bool        alive_    = false;
-    bool        attached_ = false; // true = we PTRACE_ATTACHed, false = we forked
+    pid_t       pid_          = -1;
+    bool        alive_        = false;
+    bool        attached_     = false; // true = we PTRACE_ATTACHed, false = we forked
+    bool        steppingMode_ = false; // true after singleStep(), reset in waitForStop()
     std::string path_;
 };

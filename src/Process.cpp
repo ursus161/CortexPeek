@@ -1,6 +1,7 @@
 #include "Process.hpp"
 #include <sys/ptrace.h>
 #include <sys/wait.h>
+#include <csignal>
 #include <unistd.h>
 #include <cstring>
 #include <cerrno>
@@ -89,12 +90,14 @@ Process::~Process() {
 }
 
 void Process::continueExecution() {
+    steppingMode_ = false;
     if (ptrace(PTRACE_CONT, pid_, nullptr, nullptr) < 0)
         throw PtraceException("PTRACE_CONT", errno);
 }
 
 void Process::singleStep() {
     // executes exactly one instruction then re-delivers SIGTRAP
+    steppingMode_ = true;
     if (ptrace(PTRACE_SINGLESTEP, pid_, nullptr, nullptr) < 0)
         throw PtraceException("PTRACE_SINGLESTEP", errno);
 }
@@ -105,10 +108,27 @@ bool Process::waitForStop(int& status) {
         return false;
     }
 
-    if (WIFEXITED(status) || WIFSIGNALED(status)) {
+    if (WIFEXITED(status)) {
+        notify({DebugEventType::ProcessExited, WEXITSTATUS(status)});
         alive_ = false;
         return false;
     }
+
+    if (WIFSIGNALED(status)) {
+        notify({DebugEventType::Signal, WTERMSIG(status)});
+        alive_ = false;
+        return false;
+    }
+
+    if (WIFSTOPPED(status)) {
+        int sig = WSTOPSIG(status);
+        if (sig == SIGTRAP)
+            notify({steppingMode_ ? DebugEventType::SingleStep : DebugEventType::Breakpoint, 0});
+        else
+            notify({DebugEventType::Signal, sig});
+    }
+
+    steppingMode_ = false;
     return true;
 }
 
