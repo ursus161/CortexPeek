@@ -9,6 +9,21 @@
 #include <iostream>
 #include <sstream>
 
+// returns the byte distance from addr to the nearest symbol address above it,
+// or nullopt if addr is the last symbol
+std::optional<size_t>
+DisassembleCommand::functionSize(std::uintptr_t addr,
+                                 const std::unordered_map<std::string, std::uintptr_t>& symbols)
+{
+    std::optional<std::uintptr_t> next;
+    for (const auto& [name, symAddr] : symbols)
+        if (symAddr > addr && (!next || symAddr < *next))
+            next = symAddr;
+    if (next)
+        return *next - addr;
+    return std::nullopt;
+}
+
 void ContinueCommand::execute(DebuggerContext& ctx, const std::vector<std::string>&) {
     ctx.process.continueExecution();
 }
@@ -56,11 +71,13 @@ void DisassembleCommand::execute(DebuggerContext& ctx, const std::vector<std::st
     size_t count     = 0;
     size_t maxCount  = SIZE_MAX;
 
+    std::optional<size_t> symSize;
     if (!args.empty() && args[0] != ".") {
         auto it = ctx.symbols.find(args[0]);
-        if (it != ctx.symbols.end())
-            addr = it->second;
-        else {
+        if (it != ctx.symbols.end()) {
+            addr    = it->second;
+            symSize = functionSize(addr, ctx.symbols);
+        } else {
             try {
                 addr = std::stoull(args[0], nullptr, 16);
             } catch (const std::exception&) {
@@ -74,8 +91,9 @@ void DisassembleCommand::execute(DebuggerContext& ctx, const std::vector<std::st
     }
 
     // 15 bytes is the max length of a single x86-64 instruction
-    // cap the read buffer at 64KB when no count is given so we don't read forever
-    const size_t         bufferSize = count > 0 ? 15 * count : 64 * 1024;
+    // use symbol boundary when known and no explicit count; cap at 64KB otherwise
+    const size_t bufferSize = (symSize && count == 0) ? *symSize
+                            : (count > 0 ? 15 * count : 64 * 1024);
     std::vector<uint8_t> buffer(bufferSize, 0);
     MemoryView<uint64_t> memory(ctx.process.pid());
 

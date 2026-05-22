@@ -58,6 +58,10 @@ public:
     void  execute(DebuggerContext& ctx, const std::vector<std::string>& args) override;
     std::string name() const override { return "disasm"; }
     std::string help() const override { return "disassemble: disasm [addr] [count]"; }
+private:
+    static std::optional<size_t> functionSize(
+        std::uintptr_t addr,
+        const std::unordered_map<std::string, std::uintptr_t>& symbols);
 };
 
 class HelpCommand : public Command {
