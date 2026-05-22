@@ -21,7 +21,17 @@ void BreakCommand::execute(DebuggerContext& ctx, const std::vector<std::string>&
     if (args.empty())
         throw CommandException("usage: break <address>");
 
-    std::uintptr_t addr = std::stoull(args[0], nullptr, 16);
+    std::uintptr_t addr = 0;
+    auto it = ctx.symbols.find(args[0]);
+    if (it != ctx.symbols.end())
+        addr = it->second;
+    else {
+        try {
+            addr = std::stoull(args[0], nullptr, 16);
+        } catch (const std::exception&) {
+            throw CommandException("break: unknown symbol or invalid address '" + args[0] + "'");
+        }
+    }
 
     if (ctx.breakpoints.count(addr)) {
         std::ostringstream oss;
