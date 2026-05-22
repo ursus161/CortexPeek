@@ -101,17 +101,21 @@ void DisassembleCommand::execute(DebuggerContext& ctx, const std::vector<std::st
     for (size_t offset = 0; offset < bufferSize; offset += sizeof(uint64_t)) {
         try {
             uint64_t word = memory.read(addr + offset);
-            std::memcpy(buffer.data() + offset, &word, sizeof(word));
-            bytesRead += sizeof(uint64_t);
+            // clamp the copy to avoid writing past the buffer end on the last chunk
+            size_t toCopy = std::min(sizeof(uint64_t), bufferSize - offset);
+            std::memcpy(buffer.data() + offset, &word, toCopy);
+            bytesRead += toCopy;
         } catch (const PtraceException&) {
             break; // hit unmapped memory, stop here and disassemble what we have
         }
     }
 
     Disassembler disassembler;
-    for (const auto& instr : disassembler.disassemble(buffer.data(), bytesRead, addr, maxCount))
+    for (const auto& instr : disassembler.disassemble(buffer.data(), bytesRead, addr, maxCount)) {
         std::printf("0x%016lx  %-8s %s\n",
                     instr.address, instr.mnemonic.c_str(), instr.operands.c_str());
+        if (instr.mnemonic == "ret") break; // stop at function boundary, don't decode padding
+    }
 }
 
 void HelpCommand::execute(DebuggerContext&, const std::vector<std::string>&) {
