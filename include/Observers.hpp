@@ -13,5 +13,5 @@ public:
     const History<DebugEvent>& history() const { return history_; }
 
 private:
-    History<DebugEvent> history_{50u};
+    History<DebugEvent> history_{100u};
 };
