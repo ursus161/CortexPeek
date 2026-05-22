@@ -1,4 +1,5 @@
 #include "Command.hpp"
+#include "CommandFactory.hpp"
 #include "Process.hpp"
 #include "RegisterFile.hpp"
 #include "Disassembler.hpp"
@@ -119,8 +120,18 @@ void DisassembleCommand::execute(DebuggerContext& ctx, const std::vector<std::st
 }
 
 void HelpCommand::execute(DebuggerContext&, const std::vector<std::string>&) {
-    for (const auto& [name, cmd] : cmds_)
-        std::printf("  %-12s  %s\n", cmd->name().c_str(), cmd->help().c_str());
+    for (const auto& name : factory_.availableCommands())
+        std::printf("  %-12s  %s\n", name.c_str(), factory_.helpFor(name).c_str());
+}
+
+void CommandsCommand::execute(DebuggerContext&, const std::vector<std::string>&) {
+    std::printf("commands:\n");
+    for (const auto& name : factory_.availableCommands())
+        std::printf("  %s\n", name.c_str());
+
+    std::printf("aliases:\n");
+    for (const auto& [alias, target] : factory_.aliases())
+        std::printf("  %-4s -> %s\n", alias.c_str(), target.c_str());
 }
 
 void EventsCommand::execute(DebuggerContext& ctx, const std::vector<std::string>& args) {
@@ -152,4 +163,20 @@ void EventsCommand::execute(DebuggerContext& ctx, const std::vector<std::string>
                 break;
         }
     }
+}
+
+void HistoryCommand::execute(DebuggerContext& ctx, const std::vector<std::string>& args) {
+    size_t count = 10;
+    if (!args.empty()) {
+        try {
+            count = std::stoull(args[0]);
+        } catch (const std::exception&) {
+            throw CommandException("history: invalid count '" + args[0] + "'");
+        }
+    }
+
+    const auto& entries = ctx.cmdHistory.entries();
+    size_t start = entries.size() > count ? entries.size() - count : 0;
+    for (size_t i = start; i < entries.size(); ++i)
+        std::printf("  %zu  %s\n", i + 1, entries[i].c_str());
 }

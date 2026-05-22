@@ -1,5 +1,6 @@
 #include "Process.hpp"
 #include "Command.hpp"
+#include "CommandFactory.hpp"
 #include "History.hpp"
 #include "RegisterFile.hpp"
 #include "Symbols.hpp"
@@ -11,7 +12,6 @@
 #include <cstring>
 #include <sys/wait.h>
 #include <vector>
-#include <unordered_map>
 #include <memory>
 
 int main(int argc, char* argv[]) {
@@ -30,20 +30,46 @@ int main(int argc, char* argv[]) {
 
     std::unordered_map<std::uintptr_t, std::unique_ptr<Breakpoint>> breakpoints;
     auto symbols = parseSymbols(proc.binaryPath());
-    DebuggerContext ctx{ proc, breakpoints, symbols, *histObs };
-
-    std::unordered_map<std::string, std::unique_ptr<Command>> commands;
-
-    
-    commands["continue"]  = std::make_unique<ContinueCommand>();
-    commands["step"]      = std::make_unique<StepCommand>();
-    commands["break"]     = std::make_unique<BreakCommand>();
-    commands["registers"] = std::make_unique<RegistersCommand>();
-    commands["disasm"]    = std::make_unique<DisassembleCommand>();
-    commands["events"]    = std::make_unique<EventsCommand>();
-    commands["help"]      = std::make_unique<HelpCommand>(commands);
-
     History<std::string> history;
+    DebuggerContext ctx{ proc, breakpoints, symbols, *histObs, history };
+
+    CommandFactory factory;
+
+    factory.registerCommand("continue",  "continue execution",
+        []() { return std::make_unique<ContinueCommand>(); });
+
+    factory.registerCommand("step",      "single-step one instruction",
+        []() { return std::make_unique<StepCommand>(); });
+        
+    factory.registerCommand("break",     "set breakpoint: break <addr>",
+        []() { return std::make_unique<BreakCommand>(); });
+
+
+    factory.registerCommand("registers", "dump all registers",
+        []() { return std::make_unique<RegistersCommand>(); });
+
+        
+    factory.registerCommand("disasm",    "disassemble: disasm [addr] [count]",
+        []() { return std::make_unique<DisassembleCommand>(); });
+    factory.registerCommand("events",    "show event history: events [count]",
+        []() { return std::make_unique<EventsCommand>(); });
+
+    factory.registerCommand("history",   "show command history: history [count]",
+        []() { return std::make_unique<HistoryCommand>(); });
+    // HelpCommand and CommandsCommand capture factory by reference — safe because
+    // factory outlives the entire REPL loop
+    factory.registerCommand("help",      "show this message",
+        [&factory]() { return std::make_unique<HelpCommand>(factory); });
+    factory.registerCommand("commands",  "list all registered commands and aliases",
+        [&factory]() { return std::make_unique<CommandsCommand>(factory); });
+
+    factory.registerAlias("c", "continue");
+    factory.registerAlias("s", "step");
+    factory.registerAlias("br", "break");
+    factory.registerAlias("regs", "registers");
+    factory.registerAlias("dis", "disasm");
+    factory.registerAlias("e", "events");
+    factory.registerAlias("h", "help");
 
     std::string line;
     while (proc.isAlive()) {
@@ -69,15 +95,14 @@ int main(int argc, char* argv[]) {
         const std::string& cmd = tokens[0];
         if (cmd == "quit" || cmd == "q") break;
 
-        auto found = commands.find(cmd);
-        if (found == commands.end()) {
+        if (!factory.has(cmd)) {
             std::cerr << "unknown command: " << cmd << " (type 'help')\n";
             continue;
         }
 
         try {
             std::vector<std::string> cmdArgs(tokens.begin() + 1, tokens.end());
-            found->second->execute(ctx, cmdArgs);
+            factory.create(cmd)->execute(ctx, cmdArgs);
         } catch (const CommandException& e) {
             std::cerr << "command error: " << e.what() << '\n';
         } catch (const PtraceException& e) {
@@ -89,7 +114,9 @@ int main(int argc, char* argv[]) {
         }
 
         // after continue/step wait for the next stop; LogObserver prints the event
-        if (cmd == "continue" || cmd == "step") {
+        // resolve alias first so "c" and "s" trigger the same post-step logic
+        const std::string resolved = factory.resolve(cmd);
+        if (resolved == "continue" || resolved == "step") {
             int status = 0;
             if (!proc.waitForStop(status)) {
                 // process exited or was killed — event already printed by LogObserver

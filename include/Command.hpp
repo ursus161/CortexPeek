@@ -6,15 +6,19 @@
 #include <cstdint>
 #include "Breakpoint.hpp"
 #include "Observers.hpp"
+#include "Process.hpp"
 
-class Process;
-
+// forward declaration to break the circular include:
+// CommandFactory.hpp already includes Command.hpp, so we can't include it back here
+class CommandFactory;
+    
 // context passed to every command so they can access shared debugger state
 struct DebuggerContext {
     Process& process;
     std::unordered_map<std::uintptr_t, std::unique_ptr<Breakpoint>>& breakpoints;
     std::unordered_map<std::string, std::uintptr_t>&                 symbols;
     HistoryObserver&                                                  eventHistory;
+    History<std::string>&                                             cmdHistory;
 };
 
 class Command {
@@ -66,15 +70,24 @@ private:
 
 class HelpCommand : public Command {
 public:
- explicit HelpCommand(const std::unordered_map<std::string,
-                                                  std::unique_ptr<Command>>& cmds)
-        : cmds_(cmds) {}
-    void       execute(DebuggerContext& ctx, const std::vector<std::string>& args) override;
+    explicit HelpCommand(const CommandFactory& factory) : factory_(factory) {}
+    void        execute(DebuggerContext& ctx, const std::vector<std::string>& args) override;
     std::string name() const override { return "help"; }
     std::string help() const override { return "show this message"; }
 
 private:
-    const std::unordered_map<std::string, std::unique_ptr<Command>>& cmds_;
+    const CommandFactory& factory_;
+};
+
+class CommandsCommand : public Command {
+public:
+    explicit CommandsCommand(const CommandFactory& factory) : factory_(factory) {}
+    void        execute(DebuggerContext& ctx, const std::vector<std::string>& args) override;
+    std::string name() const override { return "commands"; }
+    std::string help() const override { return "list all registered commands and aliases"; }
+
+private:
+    const CommandFactory& factory_;
 };
 
 class EventsCommand : public Command {
@@ -82,4 +95,11 @@ public:
     void        execute(DebuggerContext& ctx, const std::vector<std::string>& args) override;
     std::string name() const override { return "events"; }
     std::string help() const override { return "show event history: events [count]"; }
+};
+
+class HistoryCommand : public Command {
+public:
+    void        execute(DebuggerContext& ctx, const std::vector<std::string>& args) override;
+    std::string name() const override { return "history"; }
+    std::string help() const override { return "show command history: history [count]"; }
 };
