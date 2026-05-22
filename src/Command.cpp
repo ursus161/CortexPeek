@@ -80,3 +80,34 @@ void HelpCommand::execute(DebuggerContext&, const std::vector<std::string>&) {
     for (const auto& [name, cmd] : cmds_)
         std::printf("  %-12s  %s\n", cmd->name().c_str(), cmd->help().c_str());
 }
+
+void EventsCommand::execute(DebuggerContext& ctx, const std::vector<std::string>& args) {
+    size_t count = 10;
+    if (!args.empty()) {
+        try {
+            count = std::stoull(args[0]);
+        } catch (const std::exception&) {
+            throw CommandException("events: invalid count '" + args[0] + "'");
+        }
+    }
+
+    const auto& entries = ctx.eventHistory.history().entries();
+    size_t start = entries.size() > count ? entries.size() - count : 0;
+    for (size_t i = start; i < entries.size(); ++i) {
+        const auto& ev = entries[i];
+        switch (ev.type) {
+            case DebugEventType::Breakpoint:
+                std::printf("  breakpoint hit\n");
+                break;
+            case DebugEventType::SingleStep:
+                std::printf("  single step\n");
+                break;
+            case DebugEventType::ProcessExited:
+                std::printf("  process exited with code %d\n", ev.data);
+                break;
+            case DebugEventType::Signal:
+                std::printf("  signal %d (%s)\n", ev.data, strsignal(ev.data));
+                break;
+        }
+    }
+}

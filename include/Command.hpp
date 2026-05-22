@@ -3,8 +3,9 @@
 #include <vector>
 #include <memory>
 #include <unordered_map>
-#include "Breakpoint.hpp"
 #include <cstdint>
+#include "Breakpoint.hpp"
+#include "Observers.hpp"
 
 class Process;
 
@@ -13,6 +14,7 @@ struct DebuggerContext {
     Process& process;
     std::unordered_map<std::uintptr_t, std::unique_ptr<Breakpoint>>& breakpoints;
     std::unordered_map<std::string, std::uintptr_t>&                 symbols;
+    HistoryObserver&                                                  eventHistory;
 };
 
 class Command {
@@ -69,4 +71,11 @@ public:
 
 private:
     const std::unordered_map<std::string, std::unique_ptr<Command>>& cmds_;
+};
+
+class EventsCommand : public Command {
+public:
+    void        execute(DebuggerContext& ctx, const std::vector<std::string>& args) override;
+    std::string name() const override { return "events"; }
+    std::string help() const override { return "show event history: events [count]"; }
 };
