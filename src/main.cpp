@@ -5,6 +5,7 @@
 #include "Symbols.hpp"
 #include "Utils.hpp"
 #include "Exceptions.hpp"
+#include "Observers.hpp"
 #include <iostream>
 #include <string>
 #include <cstring>
@@ -22,9 +23,14 @@ int main(int argc, char* argv[]) {
     std::vector<std::string> args(argv + 2, argv + argc);
     Process proc(argv[1], args);
 
+    auto logger  = std::make_shared<LogObserver>();
+    auto histObs = std::make_shared<HistoryObserver>();
+    proc.subscribe(logger);
+    proc.subscribe(histObs);
+
     std::unordered_map<std::uintptr_t, std::unique_ptr<Breakpoint>> breakpoints;
     auto symbols = parseSymbols(proc.binaryPath());
-    DebuggerContext ctx{ proc, breakpoints, symbols };
+    DebuggerContext ctx{ proc, breakpoints, symbols, *histObs };
 
     std::unordered_map<std::string, std::unique_ptr<Command>> commands;
 
@@ -34,6 +40,7 @@ int main(int argc, char* argv[]) {
     commands["break"]     = std::make_unique<BreakCommand>();
     commands["registers"] = std::make_unique<RegistersCommand>();
     commands["disasm"]    = std::make_unique<DisassembleCommand>();
+    commands["events"]    = std::make_unique<EventsCommand>();
     commands["help"]      = std::make_unique<HelpCommand>(commands);
 
     History<std::string> history;
@@ -81,24 +88,20 @@ int main(int argc, char* argv[]) {
             std::cerr << "unexpected error: " << e.what() << '\n';
         }
 
-        // after continue/step wait for the next stop and report where we landed
+        // after continue/step wait for the next stop; LogObserver prints the event
         if (cmd == "continue" || cmd == "step") {
             int status = 0;
-            if (proc.waitForStop(status)) {
-                if (WIFSTOPPED(status)) {
-                    int signal = WSTOPSIG(status);
-                    // fatal signals mean the process is in an unrecoverable crash,
-                    // re-delivering them via PTRACE_CONT just loops forever
-                    if (signal == SIGSEGV || signal == SIGBUS  ||
-                        signal == SIGFPE  || signal == SIGILL  || signal == SIGABRT) {
-                        std::printf("process crashed with signal %d (%s) at 0x%016lx\n",
-                                    signal, strsignal(signal),
-                                    RegisterFile::get(proc.pid()).rip());
-                        break;
-                    }
-                }
-                std::printf("stopped at 0x%016lx\n",
-                            RegisterFile::get(proc.pid()).rip());
+            if (!proc.waitForStop(status)) {
+                // process exited or was killed — event already printed by LogObserver
+                break;
+            }
+            // fatal signals mean the process is in an unrecoverable crash,
+            // re-delivering them via PTRACE_CONT just loops forever
+            if (WIFSTOPPED(status)) {
+                int signal = WSTOPSIG(status);
+                if (signal == SIGSEGV || signal == SIGBUS  ||
+                    signal == SIGFPE  || signal == SIGILL  || signal == SIGABRT)
+                    break;
             }
         }
     }
