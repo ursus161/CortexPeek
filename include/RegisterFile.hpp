@@ -24,4 +24,7 @@ struct RegisterFile {
     uint64_t rsp() const { return regs.rsp; }
     uint64_t rbp() const { return regs.rbp; }
     uint64_t rax() const { return regs.rax; }
+
+    // needed when backing RIP up by 1 after an INT3 fires
+    void setRip(uint64_t value) { regs.rip = value; }
 };

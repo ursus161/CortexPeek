@@ -25,11 +25,33 @@ DisassembleCommand::functionSize(std::uintptr_t addr,
     return std::nullopt;
 }
 
+// if RIP-1 matches an active breakpoint, backs RIP up to the breakpoint address
+// and returns a raw pointer to it; returns nullptr if we are not at a breakpoint
+static Breakpoint* stepBackFromBreakpoint(DebuggerContext& ctx) {
+    auto regs = RegisterFile::get(ctx.process.pid());
+    auto it   = ctx.breakpoints.find(regs.rip() - 1);
+    if (it == ctx.breakpoints.end() || !it->second->isEnabled())
+        return nullptr;
+    // set it back 1 byte so it won't hover over the 0xCC byte anymore
+    regs.setRip(regs.rip() - 1);
+    regs.set(ctx.process.pid());
+    return it->second.get();
+}
+
 void ContinueCommand::execute(DebuggerContext& ctx, const std::vector<std::string>&) {
+    // if the INT3 already fired, step over the original instruction first
+    if (auto* bp = stepBackFromBreakpoint(ctx))
+        ctx.process.resumeFromBreakpoint(*bp);
+
     ctx.process.continueExecution();
 }
 
 void StepCommand::execute(DebuggerContext& ctx, const std::vector<std::string>&) {
+    // disable the breakpoint so the step lands on the real instruction;
+    // main.cpp re-enables any disabled breakpoints after waitForStop returns
+    if (auto* bp = stepBackFromBreakpoint(ctx))
+        bp->disable();
+
     ctx.process.singleStep();
 }
 

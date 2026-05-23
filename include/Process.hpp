@@ -4,6 +4,9 @@
 #include <sys/types.h>
 #include "Observer.hpp"
 
+// full definition lives in Breakpoint.hpp; Process.cpp includes it directly
+class Breakpoint;
+
 class Process : public DebugEventSource {
 public:
     // fork + exec the target binary; child calls PTRACE_TRACEME before execvp
@@ -16,7 +19,7 @@ public:
 
     ~Process();
 
-    // no copy — only one owner of a traced process
+    // no copy only one owner of a traced process
     Process(const Process&)            = delete;
     Process& operator=(const Process&) = delete;
     Process(Process&&)                 = default;
@@ -24,6 +27,10 @@ public:
 
     void continueExecution();
     void singleStep();
+
+    // steps over a fired breakpoint: backs up RIP, disables the bp, internal
+    // single-step + waitpid (no observer notifications), then re-enables the bp
+    void resumeFromBreakpoint(Breakpoint& bp);
 
     // Blocks until the tracee stops; returns false if it exited
     bool waitForStop(int& status);

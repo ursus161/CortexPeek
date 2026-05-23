@@ -56,7 +56,7 @@ int main(int argc, char* argv[]) {
 
     factory.registerCommand("history",   "show command history: history [count]",
         []() { return std::make_unique<HistoryCommand>(); });
-    // HelpCommand and CommandsCommand capture factory by reference — safe because
+    // HelpCommand and CommandsCommand capture factory by reference safe because
     // factory outlives the entire REPL loop
     factory.registerCommand("help",      "show this message",
         [&factory]() { return std::make_unique<HelpCommand>(factory); });
@@ -119,9 +119,16 @@ int main(int argc, char* argv[]) {
         if (resolved == "continue" || resolved == "step") {
             int status = 0;
             if (!proc.waitForStop(status)) {
-                // process exited or was killed — event already printed by LogObserver
+                // process exited or was killed, event already printed by LogObserver
                 break;
             }
+
+            // StepCommand disables a breakpoint before stepping so the INT3 byte
+            // doesn't re-trigger; put it back now that we have stopped safely
+            for (auto& [addr, bp] : breakpoints)
+                if (!bp->isEnabled())
+                    bp->enable();
+
             // fatal signals mean the process is in an unrecoverable crash,
             // re-delivering them via PTRACE_CONT just loops forever
             if (WIFSTOPPED(status)) {

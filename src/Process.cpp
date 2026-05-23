@@ -1,4 +1,6 @@
 #include "Process.hpp"
+#include "Breakpoint.hpp"
+#include "RegisterFile.hpp"
 #include <sys/ptrace.h>
 #include <sys/wait.h>
 #include <csignal>
@@ -130,6 +132,25 @@ bool Process::waitForStop(int& status) {
 
     steppingMode_ = false;
     return true;
+}
+
+void Process::resumeFromBreakpoint(Breakpoint& bp) {
+    // RIP has already been backed up to the breakpoint address by the caller;
+    // we just need to run the original instruction and put 0xCC back afterward
+
+    // put the original byte back so the real instruction can execute
+    bp.disable();
+
+    // step over exactly that one instruction where we put the break;
+    // going through ptrace directly avoids touching steppingMode_ or firing observer notifications
+    if (ptrace(PTRACE_SINGLESTEP, pid_, nullptr, nullptr) < 0)
+        throw PtraceException("PTRACE_SINGLESTEP", errno);
+
+    int status;
+    waitpid(pid_, &status, 0); // and when the singlestep is over..
+
+    // restore the breakpoint so the next time we hit this address it fires again
+    bp.enable();
 }
 
 void Process::detach() {
