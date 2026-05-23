@@ -5,10 +5,17 @@
 #include <cstring>
 #include <cerrno>
 #include <algorithm>
+#include <type_traits>
+#include <concepts>
 #include "Exceptions.hpp"
 
-// template so callers can read typed values directly: MemoryView<uint64_t>, MemoryView<uint32_t> etc.
+// concept: T must have no non-trivial constructor/destructor/copy
+// required because read/write copy raw bytes via memcpy over T's binary representation
 template<typename T>
+concept TriviallyCopyable = std::is_trivially_copyable_v<T>;
+
+// template so callers can read typed values directly: MemoryView<uint64_t>, MemoryView<uint32_t> etc.
+template<TriviallyCopyable T>
 class MemoryView {
 public:
     explicit MemoryView(pid_t pid) : pid_(pid) {}
@@ -20,7 +27,7 @@ private:
     pid_t pid_;
 };
 
-template<typename T>
+template<TriviallyCopyable T>
 T MemoryView<T>::read(std::uintptr_t address) const {
     T value{};
     auto*  destination = reinterpret_cast<uint8_t*>(&value);
@@ -43,7 +50,7 @@ T MemoryView<T>::read(std::uintptr_t address) const {
     return value;
 }
 
-template<typename T>
+template<TriviallyCopyable T>
 void MemoryView<T>::write(std::uintptr_t address, T value) {
     const auto* source    = reinterpret_cast<const uint8_t*>(&value);
     size_t      remaining = sizeof(T);

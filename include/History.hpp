@@ -2,8 +2,11 @@
 #include <deque>
 #include <optional>
 #include <cstddef>
+#include <concepts>
 
-template<typename T>
+// concept: std::movable requires move constructor + move assignment + destructible
+// sufficient here because push() does std::move(item) internally; accepts move-only types too
+template<std::movable T>
 class History {
 public:
     explicit History(size_t maxSize = 100) : maxSize_(maxSize) {}
