@@ -1,6 +1,7 @@
 #include "Process.hpp"
 #include "Command.hpp"
 #include "CommandFactory.hpp"
+#include "Config.hpp"
 #include "History.hpp"
 #include "RegisterFile.hpp"
 #include "Symbols.hpp"
@@ -21,17 +22,25 @@ int main(int argc, char* argv[]) {
     }
 
     std::vector<std::string> args(argv + 2, argv + argc);
+
+    Config config;
+    try {
+        config = Config::loadFromFile("data/config.txt");
+    } catch (const CortexException& e) {
+        std::printf("warning: %s, using defaults\n", e.what());
+    }
+
     Process proc(argv[1], args);
 
     auto logger  = std::make_shared<LogObserver>();
-    auto histObs = std::make_shared<HistoryObserver>();
+    auto histObs = std::make_shared<HistoryObserver>(config.getSize("event_history_size", 50));
     proc.subscribe(logger);
     proc.subscribe(histObs);
 
     std::unordered_map<std::uintptr_t, std::unique_ptr<Breakpoint>> breakpoints;
     auto symbols = parseSymbols(proc.binaryPath());
-    History<std::string> history;
-    DebuggerContext ctx{ proc, breakpoints, symbols, *histObs, history };
+    History<std::string> history(config.getSize("command_history_size", 100));
+    DebuggerContext ctx{ proc, breakpoints, symbols, *histObs, history, config };
 
     CommandFactory factory;
 
@@ -62,6 +71,8 @@ int main(int argc, char* argv[]) {
         [&factory]() { return std::make_unique<HelpCommand>(factory); });
     factory.registerCommand("commands",  "list all registered commands and aliases",
         [&factory]() { return std::make_unique<CommandsCommand>(factory); });
+    factory.registerCommand("config",    "show loaded configuration",
+        []() { return std::make_unique<ConfigCommand>(); });
 
     factory.registerAlias("c", "continue");
     factory.registerAlias("s", "step");

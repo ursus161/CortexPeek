@@ -1,5 +1,6 @@
 #include "Command.hpp"
 #include "CommandFactory.hpp"
+#include "Config.hpp"
 #include "Process.hpp"
 #include "RegisterFile.hpp"
 #include "Disassembler.hpp"
@@ -114,9 +115,10 @@ void DisassembleCommand::execute(DebuggerContext& ctx, const std::vector<std::st
     }
 
     // 15 bytes is the max length of a single x86-64 instruction
-    // use symbol boundary when known and no explicit count; cap at 64KB otherwise
+    // use symbol boundary when known and no explicit count; cap at configured limit otherwise
+    const size_t defaultBuffer = ctx.config.getSize("disasm_buffer_size", 64 * 1024);
     const size_t bufferSize = (symSize && count == 0) ? *symSize
-                            : (count > 0 ? 15 * count : 64 * 1024);
+                            : (count > 0 ? 15 * count : defaultBuffer);
     std::vector<uint8_t> buffer(bufferSize, 0);
     MemoryView<uint64_t> memory(ctx.process.pid());
 
@@ -201,4 +203,9 @@ void HistoryCommand::execute(DebuggerContext& ctx, const std::vector<std::string
     size_t start = entries.size() > count ? entries.size() - count : 0;
     for (size_t i = start; i < entries.size(); ++i)
         std::printf("  %zu  %s\n", i + 1, entries[i].c_str());
+}
+
+void ConfigCommand::execute(DebuggerContext& ctx, const std::vector<std::string>&) {
+    for (const auto& [key, value] : ctx.config.values())
+        std::printf("  %s = %s\n", key.c_str(), value.c_str());
 }

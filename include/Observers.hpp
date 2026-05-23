@@ -9,9 +9,10 @@ public:
 
 class HistoryObserver : public IDebugObserver {
 public:
+    explicit HistoryObserver(std::size_t maxSize = 50) : history_(maxSize) {}
     void onEvent(const DebugEvent& event) override;
     const History<DebugEvent>& history() const { return history_; }
 
 private:
-    History<DebugEvent> history_{100u};
+    History<DebugEvent> history_;
 };

@@ -1,0 +1,7 @@
+# CortexPeek configuration
+# Format: key=value, # for comments
+
+command_history_size=100
+event_history_size=50
+disasm_buffer_size=65536
+disasm_default_count=10

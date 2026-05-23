@@ -11,6 +11,9 @@
 // forward declaration to break the circular include:
 // CommandFactory.hpp already includes Command.hpp, so we can't include it back here
 class CommandFactory;
+
+// full definition lives in Config.hpp; Command.cpp includes it directly
+class Config;
     
 // context passed to every command so they can access shared debugger state
 struct DebuggerContext {
@@ -19,6 +22,7 @@ struct DebuggerContext {
     std::unordered_map<std::string, std::uintptr_t>&                 symbols;
     HistoryObserver&                                                  eventHistory;
     History<std::string>&                                             cmdHistory;
+    const Config&                                                     config;
 };
 
 class Command {
@@ -102,4 +106,11 @@ public:
     void        execute(DebuggerContext& ctx, const std::vector<std::string>& args) override;
     std::string name() const override { return "history"; }
     std::string help() const override { return "show command history: history [count]"; }
+};
+
+class ConfigCommand : public Command {
+public:
+    void        execute(DebuggerContext& ctx, const std::vector<std::string>& args) override;
+    std::string name() const override { return "config"; }
+    std::string help() const override { return "show loaded configuration"; }
 };
