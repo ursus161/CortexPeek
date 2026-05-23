@@ -74,7 +74,7 @@ void MemoryView<T>::write(std::uintptr_t address, T value) {
         if (ptrace(PTRACE_POKEDATA, pid_,
                    reinterpret_cast<void*>(address + offset),
                    reinterpret_cast<void*>(word)) < 0)
-            throw PtraceException("PEEKDATA", errno);
+            throw PtraceException("POKEDATA", errno);
 
         offset    += bytesToCopy;
         remaining -= bytesToCopy;

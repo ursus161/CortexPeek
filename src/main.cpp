@@ -113,6 +113,11 @@ int main(int argc, char* argv[]) {
 
         try {
             std::vector<std::string> cmdArgs(tokens.begin() + 1, tokens.end());
+
+
+            // this is where i can point out the polymorphism: factory returns std::unique_ptr<Command> (base),
+            // the actual derived type (ContinueCommand, StepCommand, BreakCommand, or other) is chosen at runtime
+
             factory.create(cmd)->execute(ctx, cmdArgs);
         } catch (const CommandException& e) {
             std::cerr << "command error: " << e.what() << '\n';
